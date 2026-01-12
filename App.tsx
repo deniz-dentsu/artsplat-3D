@@ -6,6 +6,7 @@ import Uploader from './components/Uploader';
 import Viewer3D from './components/Viewer3D';
 import Controls from './components/Controls';
 import ObjectTooltip from './components/ObjectTooltip';
+import DiscoverySlider from './components/DiscoverySlider';
 
 const App: React.FC = () => {
   const [status, setStatus] = useState<AppStatus>(AppStatus.IDLE);
@@ -13,8 +14,9 @@ const App: React.FC = () => {
   const [analysis, setAnalysis] = useState<SceneAnalysis | null>(null);
   const [splatData, setSplatData] = useState<SplatData | null>(null);
   
-  // Hover State
+  // Interaction State
   const [hoveredObj, setHoveredObj] = useState<{ name: string; description: string; historicalContext?: string } | null>(null);
+  const [selectedObjName, setSelectedObjName] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   // Settings
@@ -24,14 +26,12 @@ const App: React.FC = () => {
 
   const processImageToSplat = useCallback(async (base64: string, aiAnalysis: SceneAnalysis) => {
     setStatus(AppStatus.GENERATING);
-    
     const img = new Image();
     img.src = `data:image/jpeg;base64,${base64}`;
     await new Promise((resolve) => { img.onload = resolve; });
 
     let width = Math.max(1, img.width);
     let height = Math.max(1, img.height);
-    
     const MAX_SIZE = 384; 
     if (width > MAX_SIZE || height > MAX_SIZE) {
       const ratio = Math.min(MAX_SIZE / width, MAX_SIZE / height);
@@ -65,18 +65,14 @@ const App: React.FC = () => {
       for (let x = 0; x < width; x++) {
         const i = (y * width + x);
         const pi = i * 4;
-
         colors[i * 3] = (pixels[pi] || 0) / 255;
         colors[i * 3 + 1] = (pixels[pi + 1] || 0) / 255;
         colors[i * 3 + 2] = (pixels[pi + 2] || 0) / 255;
-
         positions[i * 3] = x - width / 2;
         positions[i * 3 + 1] = -(y - height / 2);
-
         const brightness = ((pixels[pi] || 0) + (pixels[pi + 1] || 0) + (pixels[pi + 2] || 0)) / 3;
         const normX = (x / width) * 100;
         const normY = (y / height) * 100;
-        
         let aiDepthOffset = 0;
         for (const obj of sanitizedObjects) {
             if (obj.boundingBox) {
@@ -87,13 +83,11 @@ const App: React.FC = () => {
                 }
             }
         }
-
         const baseDepth = (brightness / 255) * 50 + aiDepthOffset + (y / height) * 20;
         positions[i * 3 + 2] = isNaN(baseDepth) ? 0 : baseDepth; 
         sizes[i] = 1.0;
       }
     }
-
     setSplatData({ positions, colors, sizes, count });
     setStatus(AppStatus.VIEWING);
   }, []);
@@ -118,6 +112,7 @@ const App: React.FC = () => {
     setStatus(AppStatus.IDLE);
     setError(null);
     setHoveredObj(null);
+    setSelectedObjName(null);
   };
 
   const handleHover = useCallback((obj: { name: string; description: string; historicalContext?: string } | null, x: number, y: number) => {
@@ -125,9 +120,12 @@ const App: React.FC = () => {
     setMousePos({ x, y });
   }, []);
 
+  const handleSelect = useCallback((name: string | null) => {
+      setSelectedObjName(name);
+  }, []);
+
   return (
     <div className="relative w-full h-screen bg-[#08080a] overflow-hidden flex flex-col items-center justify-center">
-      
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden opacity-10">
           <div className="absolute -top-[20%] -left-[20%] w-[60%] h-[60%] bg-blue-600/30 blur-[180px] rounded-full" />
           <div className="absolute -bottom-[20%] -right-[20%] w-[60%] h-[60%] bg-purple-600/30 blur-[180px] rounded-full" />
@@ -143,13 +141,6 @@ const App: React.FC = () => {
                 {analysis?.artisticStyle ? `${analysis.artisticStyle} Reconstruction` : 'Volumetric Reconstruction'}
             </p>
         </div>
-        
-        {status === AppStatus.VIEWING && analysis && (
-            <div className="hidden md:flex flex-col items-end pointer-events-auto">
-                <span className="text-[10px] text-gray-400 uppercase font-bold mb-1">Atmosphere</span>
-                <p className="text-xs text-white/70 max-w-xs text-right italic font-serif">"{analysis.overallAtmosphere}"</p>
-            </div>
-        )}
       </div>
 
       <div className="w-full h-full flex items-center justify-center">
@@ -177,14 +168,23 @@ const App: React.FC = () => {
         )}
 
         {status === AppStatus.VIEWING && (
-          <div className="w-full h-full animate-in fade-in duration-1000">
+          <div className="w-full h-full animate-in fade-in duration-1000 flex">
             <Viewer3D 
               splatData={splatData} 
               analysis={analysis} 
+              selectedObjectName={selectedObjName}
               settings={{ splatScale, depthIntensity, pointSize }} 
               onHover={handleHover}
+              onSelect={handleSelect}
             />
-            {hoveredObj && (
+            
+            <DiscoverySlider 
+                objects={analysis?.objects || []} 
+                selectedName={selectedObjName} 
+                onSelect={handleSelect} 
+            />
+
+            {hoveredObj && !selectedObjName && (
               <ObjectTooltip 
                 name={hoveredObj.name} 
                 description={hoveredObj.description} 
@@ -192,6 +192,7 @@ const App: React.FC = () => {
                 mousePos={mousePos} 
               />
             )}
+            
             <Controls 
               splatScale={splatScale} setSplatScale={setSplatScale}
               depthIntensity={depthIntensity} setDepthIntensity={setDepthIntensity}
@@ -206,25 +207,12 @@ const App: React.FC = () => {
             <div className="text-5xl mb-4">🎨</div>
             <h3 className="text-xl font-bold text-red-400 mb-2">Restoration Failed</h3>
             <p className="text-sm text-red-300/60 mb-8">{error}</p>
-            <button 
-              onClick={handleReset}
-              className="px-8 py-3 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-gray-200 transition-all hover:scale-105"
-            >
+            <button onClick={handleReset} className="px-8 py-3 bg-white text-black font-black uppercase text-xs tracking-widest rounded-full hover:bg-gray-200 transition-all hover:scale-105">
               Restart Session
             </button>
           </div>
         )}
       </div>
-
-      <style>{`
-        @keyframes fade-in-out {
-          0% { opacity: 0; transform: translate(-50%, 30px); }
-          15% { opacity: 1; transform: translate(-50%, 0); }
-          85% { opacity: 1; transform: translate(-50%, 0); }
-          100% { opacity: 0; transform: translate(-50%, -30px); }
-        }
-      `}</style>
-
     </div>
   );
 };

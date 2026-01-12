@@ -4,46 +4,178 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>ArtSplat 3D</title>
+    
+    <!-- Primary Meta Tags -->
+    <title>ArtSplat 3D | Volumetric Painting Reconstruction</title>
+    <meta name="title" content="ArtSplat 3D | Volumetric Painting Reconstruction" />
+    <meta name="description" content="Transform any 2D painting or photo into a volumetric 3D Gaussian Splat-style world using Gemini AI analysis and Three.js particle rendering." />
+
+    <!-- Open Graph / Facebook / LinkedIn -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://github.com/aistudio-community" />
+    <meta property="og:title" content="ArtSplat 3D | Volumetric Painting Reconstruction" />
+    <meta property="og:description" content="Turn flat masterpieces into immersive 3D particle worlds with Gemini AI and Three.js." />
+    <meta property="og:image" content="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=1000&auto=format&fit=crop" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content="ArtSplat 3D | Volumetric Painting Reconstruction" />
+    <meta property="twitter:description" content="Turn flat masterpieces into immersive 3D particle worlds with Gemini AI." />
+    <meta property="twitter:image" content="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=1000&auto=format&fit=crop" />
+
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    
     <style>
+      :root {
+        --bg-color: #08080a;
+        --accent-color: #3b82f6;
+        --secondary-accent: #a855f7;
+      }
+      
       body {
         margin: 0;
         padding: 0;
         overflow: hidden;
-        background-color: #0a0a0a;
+        background-color: var(--bg-color);
         color: #ffffff;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Space Grotesk', sans-serif;
       }
+      
       canvas {
         display: block;
       }
-      /* Custom scrollbar for UI overlays */
+      
+      /* Splash Screen Styles */
+      #splash-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(circle at center, #111 0%, #08080a 100%);
+        transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
+      }
+
+      .loader-rings {
+        position: relative;
+        width: 100px;
+        height: 100px;
+        margin-bottom: 2.5rem;
+      }
+
+      .ring {
+        position: absolute;
+        border: 2px solid transparent;
+        border-radius: 50%;
+        animation: rotate 2s linear infinite;
+      }
+
+      .ring-1 {
+        inset: 0;
+        border-top-color: var(--accent-color);
+        animation-duration: 1.2s;
+        box-shadow: 0 -4px 10px rgba(59, 130, 246, 0.2);
+      }
+      .ring-2 {
+        inset: 12px;
+        border-right-color: var(--secondary-accent);
+        animation-duration: 1.8s;
+        animation-direction: reverse;
+      }
+      .ring-3 {
+        inset: 24px;
+        border-bottom-color: #ec4899;
+        animation-duration: 2.4s;
+      }
+
+      @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+
+      .loading-text {
+        font-weight: 900;
+        letter-spacing: 0.6em;
+        text-transform: uppercase;
+        font-size: 0.65rem;
+        color: rgba(255, 255, 255, 0.3);
+        animation: pulse-text 2s ease-in-out infinite;
+      }
+
+      @keyframes pulse-text {
+        0%, 100% { opacity: 0.2; letter-spacing: 0.5em; }
+        50% { opacity: 0.8; letter-spacing: 0.7em; }
+      }
+
+      /* Transitions */
+      body.app-loaded #splash-screen {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+
       ::-webkit-scrollbar {
-        width: 6px;
+        width: 5px;
       }
       ::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 255, 255, 0.02);
       }
       ::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 3px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
       }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
-    "three": "https://esm.sh/three@^0.182.0",
-    "three/": "https://esm.sh/three@^0.182.0/"
-  }
-}
-</script>
-</head>
+
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@^19.2.3",
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "@google/genai": "https://esm.sh/@google/genai@^1.35.0",
+        "three": "https://esm.sh/three@^0.182.0",
+        "three/": "https://esm.sh/three@^0.182.0/"
+      }
+    }
+    </script>
+  </head>
   <body>
+    <!-- Splash / Loading Screen -->
+    <div id="splash-screen">
+      <div class="loader-rings">
+        <div class="ring ring-1"></div>
+        <div class="ring ring-2"></div>
+        <div class="ring ring-3"></div>
+      </div>
+      <div class="flex flex-col items-center gap-3">
+        <div class="flex items-center gap-2">
+            <span class="bg-white text-black text-[10px] px-1.5 py-0.5 rounded font-black tracking-tighter">ART</span>
+            <h1 class="text-xl font-black tracking-tighter uppercase">SPLAT 3D</h1>
+        </div>
+        <p class="loading-text">Calibrating Volumetric Shaders</p>
+      </div>
+      
+      <!-- Attribution -->
+      <div class="absolute bottom-12 text-[9px] font-bold text-white/10 tracking-[0.4em] uppercase">
+        Powered by Gemini 3.0 & Three.js
+      </div>
+    </div>
+
+    <!-- React Root -->
     <div id="root"></div>
+
+    <script type="module">
+        // Small bridge script to handle the splash screen fade-out
+        // We wait for the 'load' event, then add a small buffer for React to paint
+        window.addEventListener('load', () => {
+            const bufferTime = 800; // ms
+            setTimeout(() => {
+                document.body.classList.add('app-loaded');
+            }, bufferTime);
+        });
+    </script>
   </body>
 </html>
