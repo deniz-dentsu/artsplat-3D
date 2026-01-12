@@ -1,0 +1,7 @@
+{
+  "name": "Copy of ArtSplat 3D",
+  "description": "Transform any 2D painting or photo into a volumetric 3D Gaussian Splat-style world using Gemini AI analysis and Three.js particle rendering.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
